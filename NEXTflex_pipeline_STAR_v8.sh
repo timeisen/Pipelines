@@ -70,8 +70,8 @@ mkdir $directory
 
 ##filename extraction
 filename=$(basename ${fastq1%%.*})
-extension="${fastq1##*.}" #Added this line and lines 94-98 on 2019 02 05 in order to allow .txt files to be fed into the pipeline. 
-echo $extension
+extension="${fastq1: -7}" #Added this line and lines 94-98 on 2019 02 05 in order to allow .txt files to be fed into the pipeline. 
+subex="${fastq1##*.}" #Added this line and lines 94-98 on 2019 02 05 in order to allow .txt files to be fed into the pipeline. 
 
 ##creates log file with input commands
 echo "Log file $(date +%y_%m_%d)" > $directory/log_file.txt;
@@ -92,46 +92,51 @@ filename=$(basename ${fastq1%%.*})
 
 
 #read filter
-if [ "$extension" = ".txt" ]; then
-    bsub -q bartel -J "unzip_fastq1" "cat $fastq1>$directory/${filename}_fastq1.txt"
+if [ "$subex" = "txt" ]; then
+    bsub -q 18 -J "unzip_fastq1" "cat $fastq1>$directory/${filename}_fastq1.txt"
+elif [ "$extension" = ".tar.gz" ]; then
+    bsub -q 18 -J "unzip_fastq1" "tar xzfO $fastq1>$directory/${filename}_fastq1.txt"
+elif [ "$subex" = "gz" ]; then
+    bsub -q 18 -J "unzip_fastq1" "gunzip -c $fastq1>$directory/${filename}_fastq1.txt"
 else
-    bsub -q bartel -J "unzip_fastq1" "gunzip -c $fastq1>$directory/${filename}_fastq1.txt"
+    echo 'cannot read fastq ext.'
+    exit 1
 fi
 
-bsub -q bartel -J "sort" "sort -k1,1V -k2,2n $bed_file > $directory/${filename}_bed_sorted.txt" 
+bsub -q 18 -J "sort" "sort -k1,1V -k2,2n $bed_file > $directory/${filename}_bed_sorted.txt" 
 
 #bowtie commands, arguments
-bsub -q bartel -w "ended(unzip_fastq1)" -J "STAR" "STAR --genomeDir $star_index --runThreadN 30 --outFilterMultimapNmax 1 --outFilterMismatchNoverLmax 0.04 --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSJfilterReads Unique --outReadsUnmapped Fastx --readFilesIn $directory/${filename}_fastq1.txt --outFileNamePrefix $directory/${filename}_ > $directory/${filename}_stdOut_logFile.txt"
+bsub -q 18 -w "ended(unzip_fastq1)" -J "STAR" "STAR --genomeDir $star_index --runThreadN 30 --outFilterMultimapNmax 1 --outFilterMismatchNoverLmax 0.04 --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSJfilterReads Unique --outReadsUnmapped Fastx --readFilesIn $directory/${filename}_fastq1.txt --outFileNamePrefix $directory/${filename}_ > $directory/${filename}_stdOut_logFile.txt"
 
 #sam to bam conversion
-bsub -q bartel -w "ended(STAR)" -J "sam_to_bam" "samtools view -bS $directory/${filename}_Aligned.out.sam | samtools sort -T $directory/${filename}_temp -@ 8 -O bam > $directory/${filename}.bam"
+bsub -q 18 -w "ended(STAR)" -J "sam_to_bam" "samtools view -bS $directory/${filename}_Aligned.out.sam | samtools sort -T $directory/${filename}_temp -@ 8 -O bam > $directory/${filename}.bam"
 
 #bam to interesect bed output. This script takes a significant portion of the pipeline in terms of runtime. #S param flips the strand.
-bsub -q bartel -w "ended(sam_to_bam) && ended(sort)" -J "bam_to_intersectBed" "intersectBed -bed -abam $directory/${filename}.bam -b $directory/${filename}_bed_sorted.txt -wb -S > $directory/${filename}_intersect_bed_output.txt"
+bsub -q 18 -w "ended(sam_to_bam) && ended(sort)" -J "bam_to_intersectBed" "intersectBed -bed -abam $directory/${filename}.bam -b $directory/${filename}_bed_sorted.txt -wb -S > $directory/${filename}_intersect_bed_output.txt"
 
 #unique bed entries
-bsub -q bartel -w "ended(bam_to_intersectBed)" -J "filter_intersect_bed" "python /lab/solexa_bartel/teisen/RNAseq/Scripts/general/intersect_bed_to_unique_entries.py $directory/${filename}_intersect_bed_output.txt $directory/${filename}_unique_intersect_bed.txt"
+bsub -q 18 -w "ended(bam_to_intersectBed)" -J "filter_intersect_bed" "python2.7 /lab/solexa_bartel/teisen/RNAseq/Scripts/general/intersect_bed_to_unique_entries.py $directory/${filename}_intersect_bed_output.txt $directory/${filename}_unique_intersect_bed.txt"
 
 #computes expression
-bsub -q bartel -w "ended(filter_intersect_bed)" -J "compute_expression" "cut -f 13,16,18 $directory/${filename}_unique_intersect_bed.txt | sort | uniq -c > $directory/${filename}_gene_assignments_compiled.txt"
+bsub -q 18 -w "ended(filter_intersect_bed)" -J "compute_expression" "cut -f 13,16,18 $directory/${filename}_unique_intersect_bed.txt | sort | uniq -c > $directory/${filename}_gene_assignments_compiled.txt"
 
 #determines gene lengths based on bed file
-bsub -q bartel -J "feature_length_determination" "python /lab/solexa_bartel/teisen/RNAseq/Scripts/compile_bed_lengths.py $bed_file $directory/bed_file_gene_lengths.txt"
+bsub -q 18 -J "feature_length_determination" "python2.7 /lab/solexa_bartel/teisen/RNAseq/Scripts/compile_bed_lengths.py $bed_file $directory/bed_file_gene_lengths.txt"
 
 #compiles both mapping data and determines rpkm
-bsub -q bartel -w "ended(compute_expression)" -J "rpkm_compile" "Rscript /lab/solexa_bartel/teisen/RNAseq/Scripts/general/compute_expression_v1.R $directory/${filename}_gene_assignments_compiled.txt $directory/bed_file_gene_lengths.txt $directory/${filename}_Log.final.out $directory/${filename}_expression_values.txt $directory/${filename}_expression_values_10rpm_cutoff.txt"
+bsub -q 18 -w "ended(compute_expression)" -J "rpkm_compile" "Rscript /lab/solexa_bartel/teisen/RNAseq/Scripts/general/compute_expression_v1.R $directory/${filename}_gene_assignments_compiled.txt $directory/bed_file_gene_lengths.txt $directory/${filename}_Log.final.out $directory/${filename}_expression_values.txt $directory/${filename}_expression_values_10rpm_cutoff.txt"
 
 #removes intermediate files
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files1" "rm -f $directory/${filename}_filtered.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files2" "rm -f $directory/${filename}_Aligned.out.sam"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files3" "rm -f $directory/${filename}_SJ.out.tab"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files4" "rm -f $directory/${filename}_Log.progress.out"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files5" "rm -f $directory/${filename}_bed_sorted.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files7" "rm -f $directory/bed_file_gene_lengths.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files8" "rm -f $directory/${filename}_stdOut_logFile.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files9" "rm -f $directory/${filename}_intersect_bed_output.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files10" "rm -f $directory/${filename}_unique_intersect_bed.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files11" "rm -f $directory/${filename}_gene_assignments_compiled.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files12" "rm -f $directory/${filename}_fastq1.txt"
-bsub -q bartel -w "ended(rpkm_compile)" -J "remove_intermediate_files13" "rm -rf $directory/${filename}__STARtmp"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files1" "rm -f $directory/${filename}_filtered.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files2" "rm -f $directory/${filename}_Aligned.out.sam"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files3" "rm -f $directory/${filename}_SJ.out.tab"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files4" "rm -f $directory/${filename}_Log.progress.out"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files5" "rm -f $directory/${filename}_bed_sorted.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files7" "rm -f $directory/bed_file_gene_lengths.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files8" "rm -f $directory/${filename}_stdOut_logFile.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files9" "rm -f $directory/${filename}_intersect_bed_output.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files10" "rm -f $directory/${filename}_unique_intersect_bed.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files11" "rm -f $directory/${filename}_gene_assignments_compiled.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files12" "rm -f $directory/${filename}_fastq1.txt"
+# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files13" "rm -rf $directory/${filename}__STARtmp"
 
