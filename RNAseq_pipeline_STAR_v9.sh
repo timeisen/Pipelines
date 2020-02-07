@@ -90,28 +90,28 @@ subex="${fastq1##*.}" #Added this line and lines 94-98 on 2019 02 05 in order to
 
 #read filter
 if [ "$subex" = "txt" ]; then
-    bsub -q 18 -J "unzip_fastq1" "cat $fastq1 > $directory/${filename}_fastq1.txt"
+    bsub -q 18 -o $directory/BsubOutput%J.txt -J "unzip_fastq1" "cat $fastq1 > $directory/${filename}_fastq1.txt"
 elif [ "$extension" = ".tar.gz" ]; then
-    bsub -q 18 -J "unzip_fastq1" "tar xzfO $fastq1 > $directory/${filename}_fastq1.txt"
+    bsub -q 18 -o $directory/BsubOutput%J.txt -J "unzip_fastq1" "tar xzfO $fastq1 > $directory/${filename}_fastq1.txt"
 elif [ "$subex" = "gz" ]; then
-    bsub -q 18 -J "unzip_fastq1" "gunzip -c $fastq1 > $directory/${filename}_fastq1.txt"
+    bsub -q 18 -o $directory/BsubOutput%J.txt -J "unzip_fastq1" "gunzip -c $fastq1 > $directory/${filename}_fastq1.txt"
 else
     echo 'cannot read fastq ext.'
     exit 1
 fi
 
 #read filter, discards reads < 10 nt.
-bsub -q 18 -w "ended(unzip_fastq1)" -J "cutadapt" "cutadapt -j 10 $directory/${filename}_fastq1.txt -u 8 -m 10 -a TCGTATGCCGTCTTCTGCTTG > $directory/${filename}_trimmed_fastq.txt"
+bsub -q 18 -o $directory/BsubOutput%J.txt -w "ended(unzip_fastq1)" -J "cutadapt" "cutadapt -j 10 $directory/${filename}_fastq1.txt -u 8 -m 10 -a TCGTATGCCGTCTTCTGCTTG > $directory/${filename}_trimmed_fastq.txt"
 
 #bowtie commands, arguments
-bsub  -q 18 -w "ended(cutadapt)" -J "STAR" "STAR --alignIntronMax 1 --outSAMtype BAM SortedByCoordinate --genomeDir $star_index --runThreadN 30 --outFilterMultimapNmax 1 --outFilterMismatchNoverLmax 0.04 --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSJfilterReads Unique --readFilesIn $directory/${filename}_trimmed_fastq.txt --outFileNamePrefix $directory/${filename}_ > $directory/${filename}_stdOut_logFile.txt"
+bsub -q 18 -o $directory/BsubOutput%J.txt -w "ended(cutadapt)" -J "STAR" "STAR --alignIntronMax 1 --outSAMtype BAM SortedByCoordinate --genomeDir $star_index --runThreadN 30 --outFilterMultimapNmax 1 --outFilterMismatchNoverLmax 0.04 --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSJfilterReads Unique --readFilesIn $directory/${filename}_trimmed_fastq.txt --outFileNamePrefix $directory/${filename}_ > $directory/${filename}_stdOut_logFile.txt"
 
 #index the bam file
-bsub  -q 18 -w "ended(STAR)" -J "index" "samtools index $directory/${filename}_Aligned.sortedByCoord.out.bam"
+bsub -q 18 -o $directory/BsubOutput%J.txt -w "ended(STAR)" -J "index" "samtools index $directory/${filename}_Aligned.sortedByCoord.out.bam"
 
 #computes expression
-bsub  -q 18 -w "ended(index)" -J "compute_expression" "featureCounts -T 10 -s 1 -f -a $gtf_file -o $directory/${filename}_featureCounts.txt $directory/${filename}_Aligned.sortedByCoord.out.bam"
+bsub -q 18 -o $directory/BsubOutput%J.txt -w "ended(index)" -J "compute_expression" "featureCounts -T 10 -s 1 -f -a $gtf_file -o $directory/${filename}_featureCounts.txt $directory/${filename}_Aligned.sortedByCoord.out.bam"
 
 #Removes raw fastq files. 
-bsub -q 18 -w "ended(STAR)" -J "cleanup" "rm $directory/${filename}_fastq1.txt $directory/${filename}_trimmed_fastq.txt"
+bsub -q 18 -o $directory/BsubOutput%J.txt -w "ended(STAR)" -J "cleanup" "rm $directory/${filename}_fastq1.txt $directory/${filename}_trimmed_fastq.txt"
 
