@@ -75,7 +75,7 @@ subex="${fastq1##*.}" #Added this line and lines 94-98 on 2019 02 05 in order to
 
 ##creates log file with input commands
 echo "Log file $(date +%y_%m_%d)" > $directory/log_file.txt;
-echo "These files were created with NEXTflex_pipeline_STAR_v7.sh" >>$directory/log_file.txt;
+echo "These files were created with NEXTflex_pipeline_STAR_v8.sh" >>$directory/log_file.txt;
 echo "Command line input: "$0" "$@>>$directory/log_file.txt;
 echo "FASTQ1 file: $fastq1" >>$directory/log_file.txt;
 echo "STAR index: $star_index" >>$directory/log_file.txt;
@@ -127,16 +127,17 @@ bsub -q 18 -J "feature_length_determination" "python2.7 /lab/solexa_bartel/teise
 bsub -q 18 -w "ended(compute_expression)" -J "rpkm_compile" "Rscript /lab/solexa_bartel/teisen/RNAseq/Scripts/general/compute_expression_v1.R $directory/${filename}_gene_assignments_compiled.txt $directory/bed_file_gene_lengths.txt $directory/${filename}_Log.final.out $directory/${filename}_expression_values.txt $directory/${filename}_expression_values_10rpm_cutoff.txt"
 
 #removes intermediate files
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files1" "rm -f $directory/${filename}_filtered.txt"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files2" "rm -f $directory/${filename}_Aligned.out.sam"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files3" "rm -f $directory/${filename}_SJ.out.tab"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files4" "rm -f $directory/${filename}_Log.progress.out"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files5" "rm -f $directory/${filename}_bed_sorted.txt"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files7" "rm -f $directory/bed_file_gene_lengths.txt"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files8" "rm -f $directory/${filename}_stdOut_logFile.txt"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files1" "rm -f $directory/${filename}_filtered.txt"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files2" "rm -f $directory/${filename}_Aligned.out.sam"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files3" "rm -f $directory/${filename}_SJ.out.tab"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files4" "rm -f $directory/${filename}_Log.progress.out"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files5" "rm -f $directory/${filename}_bed_sorted.txt"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files7" "rm -f $directory/bed_file_gene_lengths.txt"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files8" "rm -f $directory/${filename}_stdOut_logFile.txt"
 # bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files9" "rm -f $directory/${filename}_intersect_bed_output.txt"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files10" "rm -f $directory/${filename}_unique_intersect_bed.txt"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files11" "rm -f $directory/${filename}_gene_assignments_compiled.txt"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files12" "rm -f $directory/${filename}_fastq1.txt"
-# bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files13" "rm -rf $directory/${filename}__STARtmp"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files10" "rm -f $directory/${filename}_unique_intersect_bed.txt"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files10" "rm -f $directory/${filename}_Unmapped.out.mate1"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files11" "rm -f $directory/${filename}_gene_assignments_compiled.txt"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files12" "rm -f $directory/${filename}_fastq1.txt"
+bsub -q 18 -w "ended(rpkm_compile)" -J "remove_intermediate_files13" "rm -rf $directory/${filename}__STARtmp"
 
